@@ -8,6 +8,13 @@ from graphene.test import Client
 
 from controls.models import Control
 from controls.schema import Query
+from core.test_helpers import create_test_interactive_user
+
+
+class _Context:
+  """The field controls are read by a logged-in user only."""
+  def __init__(self, user):
+    self.user = user
 
 class ModelsTestCase(TestCase):
   DEFAULT_NAME = 'a_field'
@@ -63,6 +70,7 @@ class ModelsTestCase(TestCase):
     self.maxDiff = None
     self.isolated_tests = "PYTEST_CURRENT_TEST" in os.environ
     self.controls = []
+    self.context = _Context(create_test_interactive_user(username='controls_tester'))
 
   def tearDown(self):
     if isinstance(self.controls, list) and len(self.controls)>0:
@@ -74,20 +82,20 @@ class ModelsTestCase(TestCase):
 
   # def test_query_without_any_new_control(self):
   #   client = Client(self.control_schema)
-  #   executed = client.execute(self.query)
+  #   executed = client.execute(self.query, context_value=self.context)
   #   self.assertEqual(executed, self.generate_expected([] if self.isolated_tests else self.FULL_TEST_DATA_NAME))
 
   def test_query_with_one_control(self):
 
 
     client = Client(self.control_schema)
-    before_executed = client.execute(self.query)
+    before_executed = client.execute(self.query, context_value=self.context)
     self.controls.append(
       Control.objects.create(
         name=ModelsTestCase.DEFAULT_NAME,
         adjustability=ModelsTestCase.DEFAULT_ADJUSTABILITY,
         usage=ModelsTestCase.DEFAULT_USAGE))
-    executed = client.execute(self.query)
+    executed = client.execute(self.query, context_value=self.context)
     self.assertEqual(
       len(before_executed['data']['control']['edges'])+ 1,
       len(executed['data']['control']['edges']) )
@@ -96,7 +104,7 @@ class ModelsTestCase(TestCase):
   def test_query_with_several_controls(self):
     TEST_DATA_NAMES = []
     client = Client(self.control_schema)
-    before_executed = client.execute(self.query)
+    before_executed = client.execute(self.query, context_value=self.context)
     for nbr in range(1, 4):
       name = f'{ModelsTestCase.DEFAULT_NAME}_{nbr}'
       self.controls.append(
@@ -106,7 +114,7 @@ class ModelsTestCase(TestCase):
           usage=ModelsTestCase.DEFAULT_USAGE))
       TEST_DATA_NAMES.append(name)
 
-    executed = client.execute(self.query)
+    executed = client.execute(self.query, context_value=self.context)
     self.assertEqual(
       len(before_executed['data']['control']['edges'])+ 3,
       len(executed['data']['control']['edges']) )
